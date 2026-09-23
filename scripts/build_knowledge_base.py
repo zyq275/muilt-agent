@@ -12,6 +12,7 @@
 """
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -126,15 +127,35 @@ def build_knowledge_base() -> None:
         encode_kwargs={"normalize_embeddings": True},
     )
 
-    # 4. 向量化 + 持久化到 Chroma
+    # 4. 清空旧索引
+    #
+    # Chroma.from_documents 是**追加**语义：它复用同名 collection 并往里加，
+    # 不会覆盖。不清空的后果是每次重建都在累积——删掉或改名过的文档，
+    # 它的旧分块会永远留在索引里继续被检索到，让 RAG 评估的命中率虚高，
+    # 而且检索结果里会出现知识库里早已不存在的来源。
+    #
+    # 放在分块成功之后再清：万一前面加载/分块抛异常，旧索引还在，不至于两头落空。
+    if vs_dir.exists():
+        shutil.rmtree(vs_dir)
+        logger.info(f"已清空旧索引：{vs_dir}")
     vs_dir.mkdir(parents=True, exist_ok=True)
+
     vector_store = Chroma.from_documents(
         documents=chunks,
         embedding=embedding,
         persist_directory=str(vs_dir),
     )
     logger.info(f"向量索引已构建并持久化到 {vs_dir}")
-    logger.info(f"向量库中共 {vector_store._collection.count()} 个向量")
+
+    # 5. 校验：落盘向量数必须等于分块数。
+    # 不等就说明还是追加了（或并发写入），此时索引不可信，宁可让构建失败。
+    stored = vector_store._collection.count()
+    logger.info(f"向量库中共 {stored} 个向量")
+    if stored != len(chunks):
+        raise RuntimeError(
+            f"索引校验失败：分块 {len(chunks)} 个，但库中存有 {stored} 个向量。"
+            "索引可能被追加写入污染，请手动删除 vector_store/ 后重建。"
+        )
 
 
 # ── __main__ ──────────────────────────────────────────

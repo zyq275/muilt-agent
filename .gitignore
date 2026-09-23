@@ -14,10 +14,21 @@ build/
 .venv/
 venv/
 
+# 前端（frontend/）
+# node_modules 动辄几万文件，绝不提交；用 package.json + npm install 还原。
+# dist/ 已被上面的规则覆盖（无前导斜杠的写法匹配任意层级）；
+# package-lock.json 则**要提交**，它锁死依赖树，保证换机器装出同样的版本。
+node_modules/
+
 # 运行时目录
 output/
 upload/
 vector_store/
+
+# 评估生成物：每次跑都重新产出，内容随模型输出漂移，提交只会制造无意义的 diff。
+# 评估集本身（eval/eval_questions.json）和评分脚本要提交，那两个是可复现的输入。
+eval/eval_data.json
+eval/ragas_result.json
 
 # 模型权重（1.6G，首次运行自动下载）
 # 千万不要提交：会把仓库撑爆，且大文件一次提交后很难从历史里清掉。
@@ -26,7 +37,13 @@ model/
 
 # IDE
 .idea/
-.vscode/
+# 写成 .vscode/* 而不是 .vscode/：后者排除的是目录本身，git 就不会再进入该目录，
+# 后面的 ! 放行规则便永远不生效（git 规定父目录被排除时无法再放行其子文件）。
+# 排除"目录内容"则目录本身仍被遍历，否定规则才有作用。
+.vscode/*
+# 但 settings.json 要提交：它记录了两个 Python 环境的分析路径配置，
+# 不提交的话每个新克隆的人都得重新踩一遍 "无法解析导入 ragas"。
+!.vscode/settings.json
 *.swp
 
 # 系统文件

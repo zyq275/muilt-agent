@@ -1,0 +1,17 @@
+{
+  // 本项目按设计有两个互斥的 Python 环境：
+  //   主环境            —— agent / API / 检索（langgraph、deepagents、fastapi、chroma）
+  //   eval/.venv        —— RAGAS 评分（ragas 需要的 langchain 版本与主环境冲突，无法共存）
+  // 详见 eval/score_ragas.py 顶部的说明。
+  //
+  // Pylance 默认只按工作区解释器（主环境）解析导入，于是 eval/ 下的脚本会整片
+  // 报 "无法解析导入 ragas"——那是编辑器找不到包，不是代码有问题，脚本在 venv 里
+  // 能正常跑通。把 venv 的 site-packages 加进静态分析路径即可消除这些红波浪线。
+  //
+  // 只影响 Pylance 的静态分析，不改变任何运行时行为（脚本仍必须用
+  // eval/.venv/Scripts/python.exe 执行）。venv 被 gitignore，全新克隆时该路径
+  // 不存在，Pylance 会静默跳过，不会报错。
+  "python.analysis.extraPaths": [
+    "eval/.venv/Lib/site-packages"
+  ]
+}

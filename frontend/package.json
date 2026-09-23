@@ -1,0 +1,19 @@
+{
+  "name": "tanyuan-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "探渊 · 多智能体数据分析系统 — 前端（Vue 3 + Vite，TDD §8.3）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "vite": "^8.3.0"
+  }
+}

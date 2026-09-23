@@ -1,0 +1,31 @@
+# RAGAS 评分环境（eval/.venv）的依赖
+#
+# ⚠️ 只装进 eval/.venv，不要装进主环境。
+#
+# 为什么必须隔离：ragas 依赖 langchain_community.chat_models.vertexai，
+# 该模块在 langchain-community 0.4.x 中被移除；降级到 0.3.x 又会把
+# langchain-core 拖回 0.3，而主环境的 langgraph / deepagents 要求
+# langchain-core ≥ 1.4。两套 langchain 栈无法共存于同一环境。
+# 详见 eval/score_ragas.py 顶部注释。
+#
+# 复现：
+#   python -m venv eval/.venv
+#   eval/.venv/Scripts/python -m pip install -r eval/requirements.txt
+#
+# 版本必须锁死：ragas 本身导入 langchain-community 的私有路径，
+# 上游任何一次小版本调整都可能让 import 直接崩掉（0.4.x 正是这么发生的）。
+ragas==0.4.3
+
+# ragas 的运行时依赖，锁到当前验证通过的组合
+langchain==1.4.2
+langchain-core==1.6.4
+langchain-community==0.4.2
+langchain-openai==1.6.4
+openai==3.3.0
+
+# embedding：直接包 sentence-transformers，绕开 langchain-huggingface
+# （那个包装了反而多一层版本冲突面，见 score_ragas.py 的 LocalBgeEmbeddings）
+sentence-transformers==6.1.0
+
+# 读 .env 取 DeepSeek 配置与本地模型路径
+python-dotenv==1.2.3
