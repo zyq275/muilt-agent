@@ -1,0 +1,595 @@
+/**
+ * 设计令牌与全局样式
+ *
+ * 视觉方向：深空蓝底 + 极光渐变 + 玻璃拟态 + 细网格纹理。
+ *
+ * 配色**不是随便定的**——主色 #165DFF 与三个数据源色（网络检索 #409EFF、
+ * 数据库 #67C23A、知识库 #9254DE）由需求固定，必须照用。所以"科技感"不靠改
+ * 主色，而靠这几层叠出来：
+ *   1. 渐变（单向色块 → 有方向的渐变，视觉上立刻立体）；
+ *   2. 光晕（关键按钮带同色阴影，像是自发光的）；
+ *   3. 玻璃（半透明面板 + backdrop-filter，透出背景的极光与网格）；
+ *   4. 纹理（极淡的网格与径向辉光，让大片留白不空）；
+ *   5. 动效（悬浮微升、按下微缩、状态点呼吸）。
+ *
+ * 全部走 CSS 变量：深浅色切换只需在 <html> 上挂 .dark，变量整体换一套，组件
+ * 样式一行都不用改。Element Plus 自带的深色变量文件也认同一个 .dark 类，联动。
+ */
+
+/* ══════════════════════════════════════════════════════
+   一、设计令牌
+   ══════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 品牌与数据源 ── */
+  --ty-primary: #165dff;
+  --ty-primary-2: #3f7dff;
+  --ty-primary-3: #7c5cff;
+  --ty-primary-weak: rgba(22, 93, 255, 0.1);
+  --ty-primary-ring: rgba(22, 93, 255, 0.18);
+  --ty-glow: rgba(22, 93, 255, 0.38);
+
+  --ty-src-web: #409eff;
+  --ty-src-db: #67c23a;
+  --ty-src-kb: #9254de;
+
+  /* ── 语义色 ── */
+  --ty-success: #12b76a;
+  --ty-error: #f04438;
+  --ty-warning: #f79009;
+
+  /* ── 渐变 ── */
+  --ty-grad-primary: linear-gradient(135deg, #165dff 0%, #3f7dff 48%, #7c5cff 100%);
+  --ty-grad-web: linear-gradient(135deg, #409eff, #5ec8ff);
+  --ty-grad-db: linear-gradient(135deg, #52b93a, #8fd96a);
+  --ty-grad-kb: linear-gradient(135deg, #7e3fd4, #b47cf0);
+  --ty-grad-success: linear-gradient(135deg, #12b76a, #4ade80);
+  --ty-grad-danger: linear-gradient(135deg, #f04438, #fb7185);
+
+  /* ── 中性色（浅色主题）── */
+  --ty-bg: #eef2fa;
+  --ty-surface: rgba(255, 255, 255, 0.86);
+  --ty-surface-solid: #ffffff;
+  --ty-surface-soft: rgba(242, 246, 253, 0.92);
+  --ty-surface-sunken: #e8eef9;
+  --ty-border: rgba(22, 58, 120, 0.13);
+  --ty-border-strong: rgba(22, 58, 120, 0.24);
+  --ty-text: #0b1730;
+  --ty-text-soft: #4b5d7d;
+  --ty-text-faint: #8595b2;
+  --ty-input-bg: rgba(255, 255, 255, 0.7);
+
+  /* 背景装饰层：两团极光 + 网格线 */
+  --ty-aurora-1: rgba(22, 93, 255, 0.16);
+  --ty-aurora-2: rgba(124, 92, 255, 0.14);
+  --ty-grid: rgba(22, 58, 120, 0.045);
+
+  /* ── 形状与阴影 ── */
+  --ty-radius-sm: 8px;
+  --ty-radius: 12px;
+  --ty-radius-lg: 16px;
+  --ty-shadow-1: 0 1px 2px rgba(11, 23, 48, 0.05), 0 1px 8px -2px rgba(11, 23, 48, 0.07);
+  --ty-shadow-2: 0 4px 16px -4px rgba(11, 23, 48, 0.13), 0 1px 3px rgba(11, 23, 48, 0.06);
+  --ty-shadow-3: 0 14px 38px -12px rgba(11, 23, 48, 0.26), 0 2px 8px -2px rgba(11, 23, 48, 0.1);
+  --ty-glass: blur(16px) saturate(170%);
+
+  /* ── 布局尺寸 ── */
+  --ty-sidebar-w: 224px;
+  --ty-filepanel-w: 328px;
+}
+
+html.dark {
+  --ty-primary: #4c8dff;
+  --ty-primary-2: #6aa8ff;
+  --ty-primary-3: #9d7bff;
+  --ty-primary-weak: rgba(76, 141, 255, 0.14);
+  --ty-primary-ring: rgba(76, 141, 255, 0.26);
+  --ty-glow: rgba(60, 120, 255, 0.5);
+
+  --ty-src-web: #5eb0ff;
+  --ty-src-db: #7fd45f;
+  --ty-src-kb: #b98cf5;
+
+  --ty-success: #3ddc97;
+  --ty-error: #ff6b6b;
+  --ty-warning: #ffb547;
+
+  --ty-grad-primary: linear-gradient(135deg, #2f6bff 0%, #4b8dff 48%, #8b6bff 100%);
+  --ty-grad-web: linear-gradient(135deg, #3d8fe0, #6fd0ff);
+  --ty-grad-db: linear-gradient(135deg, #4aa832, #8ee06a);
+  --ty-grad-kb: linear-gradient(135deg, #7d3fd0, #c08cf7);
+  --ty-grad-success: linear-gradient(135deg, #22b573, #5ee6a8);
+  --ty-grad-danger: linear-gradient(135deg, #e5484d, #ff8085);
+
+  --ty-bg: #05080f;
+  --ty-surface: rgba(19, 27, 46, 0.7);
+  --ty-surface-solid: #121a2c;
+  --ty-surface-soft: rgba(26, 36, 58, 0.78);
+  --ty-surface-sunken: #0b1220;
+  --ty-border: rgba(122, 162, 224, 0.15);
+  --ty-border-strong: rgba(122, 162, 224, 0.3);
+  --ty-text: #e9eefb;
+  --ty-text-soft: #98a8c8;
+  --ty-text-faint: #5f6f8e;
+  --ty-input-bg: rgba(9, 15, 28, 0.6);
+
+  --ty-aurora-1: rgba(38, 96, 220, 0.3);
+  --ty-aurora-2: rgba(110, 70, 220, 0.24);
+  --ty-grid: rgba(122, 162, 224, 0.05);
+
+  --ty-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ty-shadow-2: 0 6px 20px -6px rgba(0, 0, 0, 0.6);
+  --ty-shadow-3: 0 18px 44px -14px rgba(0, 0, 0, 0.75);
+}
+
+/* ══════════════════════════════════════════════════════
+   二、Element Plus 变量桥接
+   ├─ 直接改 EP 自己的变量，比逐个类去覆盖更稳
+   ══════════════════════════════════════════════════════ */
+
+:root,
+html.dark {
+  --el-color-primary: var(--ty-primary);
+  --el-color-primary-light-3: var(--ty-primary-2);
+  --el-color-primary-light-5: color-mix(in srgb, var(--ty-primary) 55%, var(--ty-surface-solid));
+  --el-color-primary-light-7: color-mix(in srgb, var(--ty-primary) 32%, var(--ty-surface-solid));
+  --el-color-primary-light-8: color-mix(in srgb, var(--ty-primary) 20%, var(--ty-surface-solid));
+  --el-color-primary-light-9: color-mix(in srgb, var(--ty-primary) 11%, var(--ty-surface-solid));
+  --el-color-primary-dark-2: color-mix(in srgb, var(--ty-primary) 82%, #000);
+
+  --el-color-success: var(--ty-success);
+  --el-color-warning: var(--ty-warning);
+  --el-color-danger: var(--ty-error);
+  --el-color-error: var(--ty-error);
+
+  --el-border-radius-base: var(--ty-radius-sm);
+  --el-border-radius-small: 7px;
+  --el-font-size-base: 13px;
+
+  /* 全局底板与文字色 */
+  --el-bg-color: var(--ty-surface-solid);
+  --el-bg-color-overlay: var(--ty-surface-solid);
+  --el-text-color-primary: var(--ty-text);
+  --el-text-color-regular: var(--ty-text-soft);
+  --el-text-color-secondary: var(--ty-text-faint);
+  --el-border-color: var(--ty-border);
+  --el-border-color-light: var(--ty-border);
+  --el-border-color-lighter: var(--ty-border);
+  --el-fill-color-blank: var(--ty-surface-solid);
+  --el-fill-color-light: var(--ty-surface-soft);
+  --el-disabled-bg-color: var(--ty-surface-sunken);
+
+  /* 这里**不要**去改 --el-button-* 系列。
+     Element Plus 把它们声明在 .el-button 元素自身（见 theme-chalk/el-button.css
+     开头的 .el-button{...}），而元素上的自定义属性永远压过 :root 里的继承值，
+     所以写在这里是死代码，一点作用都没有。按钮的质感一律走第五节的类选择器。 */
+}
+
+/* ══════════════════════════════════════════════════════
+   三、重置与背景
+   ══════════════════════════════════════════════════════ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  background: var(--ty-bg);
+  color: var(--ty-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/**
+ * 科技感底纹：两团极光 + 一层细网格。
+ *
+ * 网格用 mask 从上往下淡出——整屏等强度的网格会显得脏，只在顶部辉光区域
+ * 显形就够了。挂在外层容器上而不是 body，避免被面板的 backdrop-filter 反复重算。
+ */
+.ty-backdrop {
+  background-color: var(--ty-bg);
+  background-image:
+    radial-gradient(920px 460px at 10% -8%, var(--ty-aurora-1), transparent 62%),
+    radial-gradient(780px 400px at 94% 2%, var(--ty-aurora-2), transparent 58%),
+    linear-gradient(var(--ty-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ty-grid) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 46px 46px, 46px 46px;
+  background-attachment: fixed, fixed, fixed, fixed;
+}
+
+/* ══════════════════════════════════════════════════════
+   四、通用卡片 / 标题 / 徽标
+   ══════════════════════════════════════════════════════ */
+
+/* 玻璃卡片：半透明 + 模糊，顶部一道渐变高光边 */
+.ty-card {
+  position: relative;
+  background: var(--ty-surface);
+  backdrop-filter: var(--ty-glass);
+  -webkit-backdrop-filter: var(--ty-glass);
+  border: 1px solid var(--ty-border);
+  border-radius: var(--ty-radius);
+  box-shadow: var(--ty-shadow-1);
+  transition: box-shadow 0.22s, border-color 0.22s, transform 0.22s;
+}
+
+/* 顶部渐变发丝线，卡片"通电"的那一下 */
+.ty-card::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  border-radius: var(--ty-radius) var(--ty-radius) 0 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ty-primary) 45%, transparent),
+    transparent
+  );
+  opacity: 0.7;
+}
+
+.ty-card-hover:hover {
+  border-color: color-mix(in srgb, var(--ty-primary) 42%, var(--ty-border));
+  box-shadow: var(--ty-shadow-2), 0 0 0 3px var(--ty-primary-ring);
+  transform: translateY(-2px);
+}
+
+/* 带渐变竖条的小节标题 */
+.ty-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ty-title::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--ty-grad-primary);
+  box-shadow: 0 0 8px var(--ty-glow);
+}
+
+/* 等宽标识（thread_id 之类），做成"芯片"的样子 */
+.ty-mono {
+  font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--ty-surface-sunken);
+  border: 1px solid var(--ty-border);
+  color: var(--ty-text-soft);
+}
+
+.ty-spacer { flex: 1; }
+
+/* ══════════════════════════════════════════════════════
+   五、按钮体系
+   ├─ 目标：不朴素。主按钮自发光，次按钮玻璃质感，全部有悬浮反馈
+   ══════════════════════════════════════════════════════ */
+
+.el-button {
+  font-weight: 600;
+  border-radius: var(--ty-radius-sm);
+  transition:
+    transform 0.16s cubic-bezier(0.22, 0.68, 0.32, 1),
+    box-shadow 0.22s,
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+/* 悬浮微升、按下微缩——最省事也最有效的"不呆板" */
+.el-button:not(.is-disabled):not(.is-link):not(.is-text):hover {
+  transform: translateY(-1px);
+}
+.el-button:not(.is-disabled):not(.is-link):not(.is-text):active {
+  transform: translateY(0) scale(0.985);
+}
+
+/* ── 主按钮：渐变 + 同色光晕 ── */
+.el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+  border: 0;
+  color: #fff;
+  background-image: var(--ty-grad-primary);
+  box-shadow:
+    0 2px 12px -3px var(--ty-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.el-button--primary:not(.is-plain):not(.is-disabled):hover {
+  box-shadow:
+    0 8px 24px -6px var(--ty-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38);
+  filter: brightness(1.06) saturate(1.06);
+}
+.el-button--primary:not(.is-plain).is-disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  filter: grayscale(0.5);
+}
+
+/* ── 危险按钮 ── */
+.el-button--danger:not(.is-plain):not(.is-text):not(.is-link) {
+  border: 0;
+  color: #fff;
+  background-image: var(--ty-grad-danger);
+  box-shadow: 0 2px 12px -3px rgba(240, 68, 56, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* ── 次按钮：玻璃 + 悬浮时描边点亮 + 外圈光环 ──
+   五个 type 必须逐个排除，**不能**用 [class*='el-button--'] 来偷懒：Element Plus
+   的尺寸类也叫 el-button--small / el-button--large，那个写法会把小号默认按钮
+   一起排除掉，结果就是它们完全没有样式。 */
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):not(.is-link):not(.is-text) {
+  backdrop-filter: blur(8px);
+  border-color: var(--ty-border);
+  background: var(--ty-input-bg);
+}
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):not(.is-link):not(.is-text):not(.is-disabled):hover {
+  border-color: var(--ty-primary);
+  color: var(--ty-primary);
+  background: var(--ty-primary-weak);
+  box-shadow: 0 0 0 3px var(--ty-primary-ring);
+}
+
+/* ── 圆形图标按钮 ── */
+.el-button.is-circle {
+  border-color: var(--ty-border);
+  background: var(--ty-input-bg);
+}
+.el-button.is-circle:not(.is-disabled):hover {
+  border-color: var(--ty-primary);
+  color: var(--ty-primary);
+  box-shadow: 0 0 0 3px var(--ty-primary-ring);
+}
+
+/* ── 文字按钮：悬浮时底色浮出来 ── */
+.el-button.is-link,
+.el-button.is-text {
+  font-weight: 600;
+  transition: color 0.18s, background-color 0.18s;
+}
+.el-button.is-link:not(.is-disabled):hover {
+  background: var(--ty-primary-weak);
+}
+
+/* ══════════════════════════════════════════════════════
+   六、表单控件
+   ══════════════════════════════════════════════════════ */
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  border-radius: var(--ty-radius-sm);
+  background-color: var(--ty-input-bg);
+  box-shadow: 0 0 0 1px var(--ty-border) inset;
+  transition: box-shadow 0.2s, background-color 0.2s;
+}
+
+/* 聚焦时：主色描边 + 一圈柔和光环，而不是 EP 默认的单线 */
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  background-color: var(--ty-surface-solid);
+  box-shadow:
+    0 0 0 1px var(--ty-primary) inset,
+    0 0 0 4px var(--ty-primary-ring);
+}
+
+.el-input__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--ty-border-strong) inset;
+}
+
+/* ══════════════════════════════════════════════════════
+   七、标签 / 进度条 / 提示
+   ══════════════════════════════════════════════════════ */
+
+.el-tag {
+  border-radius: 999px;
+  font-weight: 600;
+  border-width: 1px;
+}
+
+.el-progress-bar__inner {
+  background-image: var(--ty-grad-primary);
+}
+.el-progress.is-success .el-progress-bar__inner,
+.el-progress--success .el-progress-bar__inner {
+  background-image: var(--ty-grad-success);
+}
+.el-progress-bar__outer {
+  background-color: var(--ty-surface-sunken);
+}
+
+/* 弹窗 / 抽屉也统一成玻璃风 */
+.el-dialog,
+.el-message-box {
+  border-radius: var(--ty-radius-lg);
+  background: var(--ty-surface-solid);
+  backdrop-filter: var(--ty-glass);
+  border: 1px solid var(--ty-border);
+  box-shadow: var(--ty-shadow-3);
+}
+.el-dialog__title {
+  font-weight: 700;
+}
+
+.el-message {
+  border-radius: var(--ty-radius-sm);
+  backdrop-filter: var(--ty-glass);
+  box-shadow: var(--ty-shadow-2);
+}
+
+.el-alert {
+  border-radius: var(--ty-radius-sm);
+}
+
+.el-empty__description p {
+  color: var(--ty-text-faint);
+  font-size: 12px;
+}
+
+/* ══════════════════════════════════════════════════════
+   八、滚动条
+   ══════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ty-text-faint) 34%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ty-primary) 60%, transparent);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ══════════════════════════════════════════════════════
+   九、动效
+   ══════════════════════════════════════════════════════ */
+
+/* 新日志淡入 */
+@keyframes ty-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ty-enter {
+  animation: ty-fade-in 0.3s cubic-bezier(0.22, 0.68, 0.32, 1);
+}
+
+/* 运行中节点的呼吸 */
+@keyframes ty-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.ty-running {
+  animation: ty-pulse 1.5s ease-in-out infinite;
+}
+
+/* 状态点：外圈扩散的水波纹，表示"正在跑" */
+@keyframes ty-ripple {
+  0% {
+    box-shadow: 0 0 0 0 var(--ty-glow);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.ty-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ty-text-faint);
+  flex: 0 0 auto;
+}
+.ty-dot.is-live {
+  background: var(--ty-primary);
+  animation: ty-ripple 1.8s ease-out infinite;
+}
+.ty-dot.is-done { background: var(--ty-success); }
+.ty-dot.is-error { background: var(--ty-error); }
+
+/* 渐变文字的 LOGO 字 */
+.ty-grad-text {
+  background: var(--ty-grad-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ══════════════════════════════════════════════════════
+   十、Markdown 预览排版
+   ══════════════════════════════════════════════════════ */
+
+.ty-md {
+  line-height: 1.8;
+  word-break: break-word;
+}
+.ty-md h1,
+.ty-md h2,
+.ty-md h3 {
+  margin: 1.2em 0 0.5em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.ty-md h1 { font-size: 20px; }
+.ty-md h2 {
+  font-size: 17px;
+  padding-left: 9px;
+  border-left: 3px solid var(--ty-primary);
+}
+.ty-md h3 { font-size: 15px; }
+.ty-md p { margin: 0.6em 0; }
+.ty-md ul,
+.ty-md ol { padding-left: 1.4em; margin: 0.6em 0; }
+.ty-md code {
+  background: var(--ty-surface-sunken);
+  border: 1px solid var(--ty-border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+  font-size: 12px;
+}
+.ty-md pre {
+  background: var(--ty-surface-sunken);
+  border: 1px solid var(--ty-border);
+  border-radius: var(--ty-radius-sm);
+  padding: 10px;
+  overflow: auto;
+}
+.ty-md table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  margin: 0.8em 0;
+  border: 1px solid var(--ty-border);
+  border-radius: var(--ty-radius-sm);
+  overflow: hidden;
+}
+.ty-md th,
+.ty-md td {
+  border-bottom: 1px solid var(--ty-border);
+  padding: 7px 11px;
+  text-align: left;
+}
+.ty-md th {
+  background: var(--ty-surface-soft);
+  font-weight: 700;
+}
+.ty-md tr:last-child td { border-bottom: 0; }

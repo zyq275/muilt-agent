@@ -45,6 +45,9 @@ export async function submitTask(query, threadId = null) {
   return resp.json()
 }
 
+// 注：终止任务（POST /api/cancel）的前端封装已随按钮一起移除。
+// 后端路由仍保留在 api/server.py，需要时按上面的 submitTask 照抄即可。
+
 /**
  * 上传文件（POST /api/upload，multipart）
  *

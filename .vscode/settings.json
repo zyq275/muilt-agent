@@ -1,4 +1,13 @@
 {
+  // 主解释器指向 D 盘的 venv，而不是项目内的 .venv。
+  // 原因：C 盘只剩 4G，装不下这套依赖（约 3.5G）；D 盘有 43G 空闲。
+  // 这个路径在工作区之外，所以下面 extraPaths 里"venv 被 gitignore"那套说法
+  // 不适用于它——它压根不在仓库里，需要靠这个绝对路径定位。
+  //
+  // 换机器/换盘符时改这一行，或在 VS Code 里执行
+  // "Python: Select Interpreter" 手动选。
+  "python.defaultInterpreterPath": "D:\\venvs\\tanyuan\\Scripts\\python.exe",
+
   // 本项目按设计有两个互斥的 Python 环境：
   //   主环境            —— agent / API / 检索（langgraph、deepagents、fastapi、chroma）
   //   eval/.venv        —— RAGAS 评分（ragas 需要的 langchain 版本与主环境冲突，无法共存）

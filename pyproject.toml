@@ -7,6 +7,10 @@ dependencies = [
     # Web 框架 & ASGI 服务器
     "fastapi>=0.136",
     "uvicorn>=0.48",
+    # FastAPI 解析 multipart 表单必需（/api/upload 用了 Form(...) + File(...)）。
+    # 它不是 fastapi 的依赖，不显式声明就会在导入应用时报
+    # RuntimeError: Form data requires "python-multipart" to be installed.
+    "python-multipart>=0.0.9",
 
     # 多智能体框架
     "deepagents>=0.6.6",
@@ -53,5 +57,21 @@ dependencies = [
 tanyuan = "main:main"
 
 [build-system]
+# 必须是 setuptools.build_meta。原先写的 setuptools.backends._legacy:_Backend
+# 并不存在（setuptools 84 里没有 setuptools.backends 这个模块），
+# 会让 pip install 直接抛 BackendUnavailable: No module named 'setuptools.backends'。
 requires = ["setuptools>=75"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
+
+# 本项目是「应用」而非「库」，顶层是一堆平铺目录。setuptools 的扁平布局
+# 自动发现会把这些目录全当成包并直接报错：
+#   Multiple top-level packages discovered in a flat-layout:
+#   ['api', 'sql', 'eval', 'agent', 'model', 'output', 'upload', ...]
+# 它分不清 eval/ upload/ output/ 这些根本不是包的目录。所以显式声明：
+# 真包只有 agent（含 agent.sub_agents）、api、tools、utils，
+# 加一个顶层模块 main.py（[project.scripts] 的 tanyuan 指向它的 main 函数）。
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["agent*", "api*", "tools*", "utils*"]

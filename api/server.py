@@ -11,6 +11,8 @@
                         → {"status":"started","thread_id":str}
     POST /api/upload    multipart: files[] + thread_id
                         → {"status":"uploaded","files":[str]}
+    POST /api/cancel    {"thread_id": str}
+                        → {"status":"cancelled"|"not_running", "thread_id": str}
     GET  /api/files     ?path=<绝对路径>
                         → {"files":[{name,type,path,size,mtime}]}（mtime 倒序）
     GET  /api/download  ?path=<绝对路径>
@@ -47,7 +49,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from api.context import new_thread_id
-from api.monitor import EVENT_ERROR, get_monitor
+from api.monitor import EVENT_CANCELLED, EVENT_ERROR, get_monitor
 from utils.logger_utils import get_logger
 from utils.path_utils import (
     OUTPUT_DIR,
@@ -120,6 +122,17 @@ def _resolve_within_output(raw_path: str) -> Path:
         raise HTTPException(status_code=403, detail="拒绝访问：路径越界")
 
 
+# ── 在跑任务登记表（供取消用）──────────────────────────
+#
+# create_task 用 asyncio.create_task 起后台任务后，原本**没有留下任何句柄**，
+# 因此没有办法取消它。这里把 task 按 thread_id 存下来，POST /api/cancel 才能
+# 找到并取消对应的执行。
+#
+# 只有一个事件循环（uvicorn 主循环）会写这张表，所以用普通 dict 即可；
+# 句柄在任务结束时由 done_callback 主动摘除，不会长期堆积。
+_running_tasks: dict[str, asyncio.Task] = {}
+
+
 # ── 应用与路由 ─────────────────────────────────────────
 
 def create_app() -> FastAPI:
@@ -151,6 +164,12 @@ class TaskRequest(BaseModel):
 
     query: str = Field(..., min_length=1, description="用户任务描述")
     thread_id: str | None = Field(default=None, description="会话标识，缺省则新建")
+
+
+class CancelRequest(BaseModel):
+    """POST /api/cancel 请求体。"""
+
+    thread_id: str = Field(..., description="要终止的会话标识")
 
 
 def _register_routes(app: FastAPI) -> None:
@@ -186,10 +205,49 @@ def _register_routes(app: FastAPI) -> None:
         get_monitor().bind_loop()
 
         logger.info(f"收到任务：thread_id={thread_id}, query={query[:50]}")
-        # 立即返回，不 await 执行结果
-        asyncio.create_task(_execute_task(query, thread_id))
+        # 立即返回，不 await 执行结果。句柄登记到表里，供 /api/cancel 取消。
+        task = asyncio.create_task(_execute_task(query, thread_id))
+        _running_tasks[thread_id] = task
+        # 任务无论正常结束、异常还是被取消，都要把句柄摘掉，否则表会一直涨
+        task.add_done_callback(lambda _t, tid=thread_id: _running_tasks.pop(tid, None))
 
         return {"status": "started", "thread_id": thread_id}
+
+    # ── 任务取消 ───────────────────────────────────────
+
+    @app.post("/api/cancel")
+    async def cancel_task(req: CancelRequest):
+        """
+        终止某会话正在执行的任务。
+
+        注意这里取消的是**当前进程内、由本接口所在的事件循环持有的那个
+        asyncio.Task**。具体含义：
+          - run_deep_agent 是 async 函数，取消会在它的下一个 await 点抛出
+            CancelledError 并一路向上传播（agent/main_agent.py 里的
+            `except Exception` 抓不到它——CancelledError 继承自 BaseException，
+            所以不会被误当成"执行失败"），其 finally 仍会执行 reset_session()；
+          - 已经发出去的同步调用（线程池里的 LLM / 数据库请求）不会被强行中断，
+            它们跑完的结果会被丢弃。所以取消是"尽快停"，不是"立刻断"；
+          - 已经落盘的中间产物（.md/.pdf）保持原样，不会回滚。
+        """
+        try:
+            thread_id = _safe_thread_id(req.thread_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        task = _running_tasks.get(thread_id)
+        if task is None or task.done():
+            # 任务已经结束（或从未在本进程跑过）：如实回报，不假装成功
+            return {"status": "not_running", "thread_id": thread_id}
+
+        task.cancel()
+        logger.info(f"任务已请求取消：thread_id={thread_id}")
+
+        # 在事件循环内直接推送，确保前端一定能收到终止信号
+        await get_monitor().broadcast_now(
+            thread_id, EVENT_CANCELLED, "任务已被用户终止", {}
+        )
+        return {"status": "cancelled", "thread_id": thread_id}
 
     # ── 文件上传 ───────────────────────────────────────
 

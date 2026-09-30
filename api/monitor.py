@@ -20,6 +20,13 @@
     assistant_call   主智能体调用子智能体   {"assistant_name": "<subagent_type>", "args": "<任务描述>"}
     task_result      返回最终结果           {"result": "<文本>"}
     error            执行失败               （message 为错误说明）
+    cancelled        任务被用户终止         {}（TDD §8.2 五种之外的扩展，见下）
+
+关于 cancelled：
+    TDD §8.2 只定义了上面五种事件。用户主动终止任务需要一个语义明确的信号——
+    复用 error 会让"用户点了终止"在界面上显示成红色报错，与事实不符；复用
+    task_result 又会把半截报告当成正常产出。因此新增第六种。它是**纯增量**的：
+    不认识这个类型的老消费者按未知事件忽略即可，不会破坏既有契约。
 
 线程模型（关键）：
     编排层 `run_deep_agent` 在 asyncio 任务里运行，其 `on_event` 回调可能从
@@ -52,6 +59,8 @@ EVENT_TOOL_START = "tool_start"
 EVENT_ASSISTANT_CALL = "assistant_call"
 EVENT_TASK_RESULT = "task_result"
 EVENT_ERROR = "error"
+# TDD §8.2 之外的扩展事件：用户主动终止任务（详见模块 docstring）
+EVENT_CANCELLED = "cancelled"
 
 MESSAGE_TYPE = "monitor_event"
 
